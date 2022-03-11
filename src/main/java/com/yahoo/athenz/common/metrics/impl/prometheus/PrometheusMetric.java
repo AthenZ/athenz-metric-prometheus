@@ -23,6 +23,7 @@ import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.Counter;
 import io.prometheus.client.SimpleCollector;
 import io.prometheus.client.Summary;
+import io.prometheus.client.Histogram;
 
 import com.yahoo.athenz.common.metrics.Metric;
 
@@ -50,6 +51,10 @@ public class PrometheusMetric implements Metric {
     private boolean isLabelHttpMethodNameEnable;
     private boolean isLabelHttpStatusNameEnable;
     private boolean isLabelApiNameEnable;
+    private boolean isHistogramEnable;
+    private double[] histogramBuckets;
+
+    private static final double[] DEFAULT_HISTOGRAM_BUCKETS = new double[]{0.005D, 0.01D, 0.025D, 0.05D, 0.075D, 0.1D, 0.25D, 0.5D, 0.75D, 1.0D, 2.5D, 5.0D, 7.5D, 10.0D};
 
     /**
      * @param registry CollectorRegistry of all metrics
@@ -57,7 +62,7 @@ public class PrometheusMetric implements Metric {
      * @param namespace prefix of all metrics
      */
     public PrometheusMetric(CollectorRegistry registry, ConcurrentMap<String, Collector> namesToCollectors, PrometheusExporter exporter, String namespace) {
-        this(registry, namesToCollectors, exporter, namespace, false, false, false, false, false);
+        this(registry, namesToCollectors, exporter, namespace, false, false, false, false, false, false, null);
     }
 
     /**
@@ -78,7 +83,9 @@ public class PrometheusMetric implements Metric {
                             boolean isLabelPrincipalDomainNameEnable,
                             boolean isLabelHttpMethodNameEnable,
                             boolean isLabelHttpStatusNameEnable,
-                            boolean isLabelApiNameEnable) {
+                            boolean isLabelApiNameEnable,
+                            boolean isHistogramEnable,
+                            double[] histogramBuckets) {
         this.registry = registry;
         this.namesToCollectors = namesToCollectors;
         this.exporter = exporter;
@@ -89,6 +96,9 @@ public class PrometheusMetric implements Metric {
         this.isLabelHttpMethodNameEnable = isLabelHttpMethodNameEnable;
         this.isLabelHttpStatusNameEnable = isLabelHttpStatusNameEnable;
         this.isLabelApiNameEnable = isLabelApiNameEnable;
+
+        this.isHistogramEnable = isHistogramEnable;
+        this.histogramBuckets = histogramBuckets == null ? DEFAULT_HISTOGRAM_BUCKETS : histogramBuckets;
     }
 
     @Override
@@ -158,11 +168,16 @@ public class PrometheusMetric implements Metric {
         principalDomainName = (this.isLabelPrincipalDomainNameEnable) ? Objects.toString(principalDomainName, "") : "";
 
         metricName = this.normalizeTimerMetricName(metricName);
-        Summary summary = (Summary) createOrGetCollector(metricName, Summary.build()
-        // .quantile(0.5, 0.05)
-        // .quantile(0.9, 0.01)
-        );
-        return summary.labels(requestDomainName, principalDomainName, "", "", "").startTimer();
+        if (this.isHistogramEnable) {
+            Histogram histogram = (Histogram) createOrGetCollector(metricName, Histogram.build().buckets(this.histogramBuckets));
+            return histogram.labels(requestDomainName, principalDomainName, "", "", "").startTimer();
+        } else {
+            Summary summary = (Summary) createOrGetCollector(metricName, Summary.build()
+                    // .quantile(0.5, 0.05)
+                    // .quantile(0.9, 0.01)
+            );
+            return summary.labels(requestDomainName, principalDomainName, "", "", "").startTimer();
+        }
     }
 
     @Override
@@ -174,9 +189,15 @@ public class PrometheusMetric implements Metric {
         apiName = (this.isLabelApiNameEnable) ? Objects.toString(apiName, "") : "";
 
         metricName = this.normalizeTimerMetricName(metricName);
-        Summary summary = (Summary) createOrGetCollector(metricName, Summary.build());
+        if (this.isHistogramEnable){
+            Histogram histogram = (Histogram) createOrGetCollector(metricName, Histogram.build().buckets(this.histogramBuckets));
 
-        return summary.labels(requestDomainName, principalDomainName, httpMethod, "", apiName).startTimer();
+            return histogram.labels(requestDomainName, principalDomainName, httpMethod, "", apiName).startTimer();
+        } else {
+            Summary summary = (Summary) createOrGetCollector(metricName, Summary.build());
+
+            return summary.labels(requestDomainName, principalDomainName, httpMethod, "", apiName).startTimer();
+        }
     }
 
     @Override
@@ -184,8 +205,13 @@ public class PrometheusMetric implements Metric {
         if (timerObj == null) {
             return;
         }
-        Summary.Timer timer = (Summary.Timer) timerObj;
-        timer.observeDuration();
+        if (this.isHistogramEnable){
+            Histogram.Timer timer = (Histogram.Timer) timerObj;
+            timer.observeDuration();
+        } else {
+            Summary.Timer timer = (Summary.Timer) timerObj;
+            timer.observeDuration();
+        }
     }
 
     @Override

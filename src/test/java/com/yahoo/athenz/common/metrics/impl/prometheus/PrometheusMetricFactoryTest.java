@@ -104,6 +104,9 @@ public class PrometheusMetricFactoryTest {
         boolean expectedIsLabelHttpMethodNameEnable = true;
         boolean expectedIsLabelHttpStatusNameEnable = true;
         boolean expectedIsLabelApiNameEnable = true;
+        boolean expectedIsHistogramEnable = true;
+        double[] expectedHistogramBuckets = new double[]{0.1D, 0.25D, 0.5D, 0.75D, 1.0D, 2.5D};
+        String expectedHistogramBucketsProp = "0.1, 0.25, 0.5, 0.75, 1.0, 2.5";
 
         PrometheusMetric metric = null;
         try {
@@ -116,6 +119,9 @@ public class PrometheusMetricFactoryTest {
             setProperty(PrometheusMetricFactory.LABEL_HTTP_STATUS_NAME_ENABLE_PROP, String.valueOf(expectedIsLabelHttpStatusNameEnable));
             setProperty(PrometheusMetricFactory.LABEL_API_NAME_ENABLE_PROP, String.valueOf(expectedIsLabelApiNameEnable));
 
+            setProperty(PrometheusMetricFactory.HISTOGRAM_ENABLE_PROP, String.valueOf(expectedIsHistogramEnable));
+            setProperty(PrometheusMetricFactory.HISTOGRAM_BUCKETS_PROP, expectedHistogramBucketsProp);
+
             metric = (PrometheusMetric) new PrometheusMetricFactory().create();
             clearProperty(PrometheusMetricFactory.HTTP_SERVER_ENABLE_PROP);
             clearProperty(PrometheusMetricFactory.NAMESPACE_PROP);
@@ -124,6 +130,8 @@ public class PrometheusMetricFactoryTest {
             clearProperty(PrometheusMetricFactory.LABEL_HTTP_METHOD_NAME_ENABLE_PROP);
             clearProperty(PrometheusMetricFactory.LABEL_HTTP_STATUS_NAME_ENABLE_PROP);
             clearProperty(PrometheusMetricFactory.LABEL_API_NAME_ENABLE_PROP);
+            clearProperty(PrometheusMetricFactory.HISTOGRAM_ENABLE_PROP);
+            clearProperty(PrometheusMetricFactory.HISTOGRAM_BUCKETS_PROP);
 
             // assertions
             Field exporterField = metric.getClass().getDeclaredField("exporter");
@@ -161,6 +169,16 @@ public class PrometheusMetricFactoryTest {
             boolean isLabelApiNameEnable = (Boolean) isLabelApiNameEnableField.get(metric);
             Assert.assertEquals(isLabelApiNameEnable, expectedIsLabelApiNameEnable);
 
+            Field isHistogramEnableField = metric.getClass().getDeclaredField("isHistogramEnable");
+            isHistogramEnableField.setAccessible(true);
+            boolean isHistogramEnable = (Boolean) isHistogramEnableField.get(metric);
+            Assert.assertEquals(isHistogramEnable, expectedIsHistogramEnable);
+
+            Field HistogramBucketField = metric.getClass().getDeclaredField("histogramBuckets");
+            HistogramBucketField.setAccessible(true);
+            double[] histogramBuckets = (double[]) HistogramBucketField.get(metric);
+            Assert.assertEquals(histogramBuckets, expectedHistogramBuckets);
+
         } finally {
             // cleanup
             if (metric != null) {
@@ -169,4 +187,15 @@ public class PrometheusMetricFactoryTest {
         }
     }
 
+    @Test(expectedExceptions = { RuntimeException.class }, expectedExceptionsMessageRegExp = "Invalid property format: " + PrometheusMetricFactory.SYSTEM_PROP_PREFIX + PrometheusMetricFactory.HISTOGRAM_BUCKETS_PROP)
+    public void testCreateInvalidProperty() {
+        String invalidHistogramBucketsProp = "0.1, invalid, 0.2";
+
+        try {
+            setProperty(PrometheusMetricFactory.HISTOGRAM_BUCKETS_PROP, invalidHistogramBucketsProp);
+            new PrometheusMetricFactory().create();
+        } finally {
+            clearProperty(PrometheusMetricFactory.HISTOGRAM_BUCKETS_PROP);
+        }
+    }
 }

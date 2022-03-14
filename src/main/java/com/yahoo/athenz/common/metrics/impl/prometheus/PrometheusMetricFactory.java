@@ -16,6 +16,7 @@
 package com.yahoo.athenz.common.metrics.impl.prometheus;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 
 import io.prometheus.client.Collector;
@@ -44,6 +45,8 @@ public class PrometheusMetricFactory implements MetricFactory {
     public static final String LABEL_HTTP_STATUS_NAME_ENABLE_PROP = "label.http_status_name.enable";
     public static final String LABEL_API_NAME_ENABLE_PROP = "label.api_name.enable";
 
+    public static final String HISTOGRAM_ENABLE_PROP = "histogram.enable";
+    public static final String HISTOGRAM_BUCKETS_PROP = "histogram.buckets";
 
     @Override
     public Metric create() {
@@ -91,6 +94,20 @@ public class PrometheusMetricFactory implements MetricFactory {
         boolean isLabelHttpMethodNameEnable = Boolean.valueOf(getProperty(LABEL_HTTP_METHOD_NAME_ENABLE_PROP, "false"));
         boolean isLabelHttpStatusNameEnable = Boolean.valueOf(getProperty(LABEL_HTTP_STATUS_NAME_ENABLE_PROP, "false"));
         boolean isLabelApiNameEnable = Boolean.valueOf(getProperty(LABEL_API_NAME_ENABLE_PROP, "false"));
+        boolean isHistogramEnable = Boolean.valueOf(getProperty(HISTOGRAM_ENABLE_PROP, "false"));
+        double[] histogramBuckets = null;
+
+        String histogramBucketsStr = getProperty(HISTOGRAM_BUCKETS_PROP, "");
+        if (!histogramBucketsStr.equals("")) {
+            try {
+                histogramBuckets = Arrays.stream(histogramBucketsStr.split(","))
+                        .mapToDouble(Double::parseDouble)
+                        .toArray();
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("Invalid property format: " + SYSTEM_PROP_PREFIX + HISTOGRAM_BUCKETS_PROP);
+            }
+        }
+
         return new PrometheusMetric(
                 registry,
                 namesToCollectors,
@@ -100,8 +117,9 @@ public class PrometheusMetricFactory implements MetricFactory {
                 isLabelPrincipalDomainNameEnable,
                 isLabelHttpMethodNameEnable,
                 isLabelHttpStatusNameEnable,
-                isLabelApiNameEnable);
-
+                isLabelApiNameEnable,
+                isHistogramEnable,
+                histogramBuckets);
     }
 
     /**

@@ -33,6 +33,7 @@ import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.Counter;
 import io.prometheus.client.SimpleCollector;
 import io.prometheus.client.Summary;
+import io.prometheus.client.Histogram;
 
 public class PrometheusMetricTest {
 
@@ -42,6 +43,15 @@ public class PrometheusMetricTest {
             PrometheusMetric.REQUEST_HTTP_METHOD_LABEL_NAME,
             PrometheusMetric.REQUEST_HTTP_STATUS_LABEL_NAME,
             PrometheusMetric.REQUEST_API_LABEL_NAME
+    };
+
+    private String[] labelNamesBucket = {
+            PrometheusMetric.REQUEST_DOMAIN_LABEL_NAME,
+            PrometheusMetric.PRINCIPAL_DOMAIN_LABEL_NAME,
+            PrometheusMetric.REQUEST_HTTP_METHOD_LABEL_NAME,
+            PrometheusMetric.REQUEST_HTTP_STATUS_LABEL_NAME,
+            PrometheusMetric.REQUEST_API_LABEL_NAME,
+            "le"
     };
 
     @Test
@@ -55,6 +65,9 @@ public class PrometheusMetricTest {
         boolean isLabelHttpMethodNameEnable = true;
         boolean isLabelHttpStatusNameEnable = true;
         boolean isLabelApiNameEnable = true;
+        boolean isHistogramEnable = true;
+        double[] histogramBuckets = new double[]{0.1D, 0.25D, 0.5D, 0.75D, 1.0D, 2.5D};
+        double[] defaultHistogramBuckets = new double[]{0.005D, 0.01D, 0.025D, 0.05D, 0.075D, 0.1D, 0.25D, 0.5D, 0.75D, 1.0D, 2.5D, 5.0D, 7.5D, 10.0D};
 
         BiFunction<Field, PrometheusMetric, Object> getFieldValue = (f, object) -> {
             try {
@@ -96,6 +109,12 @@ public class PrometheusMetricTest {
                 case "isLabelApiNameEnable":
                     Assert.assertEquals(getFieldValue.apply(f, metric_1), false);
                     break;
+                case "isHistogramEnable":
+                    Assert.assertEquals(getFieldValue.apply(f, metric_1), false);
+                    break;
+                case "histogramBuckets":
+                    Assert.assertEquals(getFieldValue.apply(f, metric_1), defaultHistogramBuckets);
+                    break;
                 default:
                     break;
             }
@@ -103,7 +122,7 @@ public class PrometheusMetricTest {
 
         // different signature
         PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, exporter, namespace,
-                isLabelRequestDomainNameEnable, isLabelPrincipalDomainNameEnable, isLabelHttpMethodNameEnable, isLabelHttpStatusNameEnable, isLabelApiNameEnable);
+                isLabelRequestDomainNameEnable, isLabelPrincipalDomainNameEnable, isLabelHttpMethodNameEnable, isLabelHttpStatusNameEnable, isLabelApiNameEnable, isHistogramEnable, histogramBuckets);
         // assertions
         for (Field f : metric_2.getClass().getDeclaredFields()) {
             switch (f.getName()) {
@@ -133,6 +152,12 @@ public class PrometheusMetricTest {
                     break;
                 case "isLabelApiNameEnable":
                     Assert.assertEquals(getFieldValue.apply(f, metric_2), isLabelApiNameEnable);
+                    break;
+                case "isHistogramEnable":
+                    Assert.assertEquals(getFieldValue.apply(f, metric_2), isHistogramEnable);
+                    break;
+                case "histogramBuckets":
+                    Assert.assertEquals(getFieldValue.apply(f, metric_2), histogramBuckets);
                     break;
                 default:
                     break;
@@ -198,7 +223,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_1, this.labelNames, new String[]{requestDomainName_1, principalDomainName_1, "", "", ""}));
 
         // 2. only request domain
-        PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, false, false, false, false);
+        PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, false, false, false, false, false, null);
         String metricName_2 = "test_counter_2";
         String fullMetricName_2 = namespace + "_" + metricName_2 + "_" + PrometheusMetric.COUNTER_SUFFIX;
         String requestDomainName_2 = "request_domain_2";
@@ -222,7 +247,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_2, this.labelNames, new String[]{requestDomainName_2, principalDomainName_2, "", "", ""}));
 
         // 3. only principal domain
-        PrometheusMetric metric_3 = new PrometheusMetric(registry, namesToCollectors, null, namespace, false, true, false, false, false);
+        PrometheusMetric metric_3 = new PrometheusMetric(registry, namesToCollectors, null, namespace, false, true, false, false, false, false, null);
         String metricName_3 = "test_counter_3";
         String fullMetricName_3 = namespace + "_" + metricName_3 + "_" + PrometheusMetric.COUNTER_SUFFIX;
         String requestDomainName_3 = "request_domain_3";
@@ -246,7 +271,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_3, this.labelNames, new String[]{requestDomainName_3, principalDomainName_3, "", "", ""}));
 
         // 4. enable request domain and principal domain
-        PrometheusMetric metric_4 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, false, false, false);
+        PrometheusMetric metric_4 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, false, false, false, false, null);
         String metricName_4 = "test_counter_4";
         String fullMetricName_4 = namespace + "_" + metricName_4 + "_" + PrometheusMetric.COUNTER_SUFFIX;
         String requestDomainName_4 = "request_domain_4";
@@ -310,7 +335,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_1, this.labelNames, new String[]{requestDomainName_1, principalDomainName_1, httpMethodName_1, httpStatusName_1, apiName_1}));
 
         // 2. only principal domain and httpStatus
-        PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, null, namespace, false, true, false, true, false);
+        PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, null, namespace, false, true, false, true, false, false, null);
         String metricName_2 = "test_counter_2";
         String fullMetricName_2 = namespace + "_" + metricName_2 + "_" + PrometheusMetric.COUNTER_SUFFIX;
         String requestDomainName_2 = "request_domain_2";
@@ -343,7 +368,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_2, this.labelNames, new String[]{requestDomainName_2, principalDomainName_2, httpMethodName_2, httpStatusName_2, apiName_2}));
 
         // 3. All
-        PrometheusMetric metric_3 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, true, true, true);
+        PrometheusMetric metric_3 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, true, true, true, false, null);
         String metricName_3 = "test_counter_3";
         String fullMetricName_3 = namespace + "_" + metricName_3 + "_" + PrometheusMetric.COUNTER_SUFFIX;
         String requestDomainName_3 = "request_domain_3";
@@ -429,7 +454,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_1, this.labelNames, new String[]{requestDomainName_1, principalDomainName_1, "", "", ""}));
 
         // 2. only request domain
-        PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, false, false, false, false);
+        PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, false, false, false, false, false, null);
         String metricName_2 = "test_timer_2";
         String fullMetricName_2 = namespace + "_" + metricName_2 + "_" + PrometheusMetric.TIMER_UNIT + "_sum";
         String requestDomainName_2 = "request_domain_2";
@@ -449,7 +474,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_2, this.labelNames, new String[]{requestDomainName_2, principalDomainName_2, "", "", ""}));
 
         // 3. only principal domain
-        PrometheusMetric metric_3 = new PrometheusMetric(registry, namesToCollectors, null, namespace, false, true, false, false, false);
+        PrometheusMetric metric_3 = new PrometheusMetric(registry, namesToCollectors, null, namespace, false, true, false, false, false, false, null);
         String metricName_3 = "test_timer_3";
         String fullMetricName_3 = namespace + "_" + metricName_3 + "_" + PrometheusMetric.TIMER_UNIT + "_sum";
         String requestDomainName_3 = "request_domain_3";
@@ -469,7 +494,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_3, this.labelNames, new String[]{requestDomainName_3, principalDomainName_3, "", "", ""}));
 
         // 4. enable both labels
-        PrometheusMetric metric_4 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, false, false, false);
+        PrometheusMetric metric_4 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, false, false, false, false, null);
         String metricName_4 = "test_timer_4";
         String fullMetricName_4 = namespace + "_" + metricName_4 + "_" + PrometheusMetric.TIMER_UNIT + "_sum";
         String requestDomainName_4 = "request_domain_4";
@@ -487,6 +512,28 @@ public class PrometheusMetricTest {
         Assert.assertNotNull(registry.getSampleValue(fullMetricName_4, this.labelNames, new String[]{requestDomainName_4, "", "", "", ""}));
         Assert.assertNotNull(registry.getSampleValue(fullMetricName_4, this.labelNames, new String[]{"", principalDomainName_4, "", "", ""}));
         Assert.assertNotNull(registry.getSampleValue(fullMetricName_4, this.labelNames, new String[]{requestDomainName_4, principalDomainName_4, "", "", ""}));
+    }
+
+    @Test
+    public void testStartTimingHistogramEnable() {
+        CollectorRegistry registry = new CollectorRegistry();
+        ConcurrentHashMap<String, Collector> namesToCollectors = new ConcurrentHashMap<>();
+        String namespace = "metric_test";
+        double[] histogramBuckets = new double[]{0.1D, 0.25D, 0.5D, 0.75D, 1.0D, 2.5D};
+
+        PrometheusMetric metric = new PrometheusMetric(registry, namesToCollectors, null, namespace, false, false, false, false, false, true, histogramBuckets);
+        String metricName = "test_timer";
+        String fullMetricName = namespace + "_" + metricName + "_" + PrometheusMetric.TIMER_UNIT + "_bucket";
+
+        metric.stopTiming(metric.startTiming(metricName, null, null));
+
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "0.1"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "0.25"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "0.5"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "0.75"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "1.0"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "2.5"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "+Inf"}));
     }
 
     @Test
@@ -527,7 +574,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_1, this.labelNames, new String[]{requestDomainName_1, principalDomainName_1, httpMethodName_1, "", apiName_1}));
 
         // 2. Principal Domain and http method
-        PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, true, false, false);
+        PrometheusMetric metric_2 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, true, false, false, false, null);
         String metricName_2 = "test_timer_2";
         String fullMetricName_2 = namespace + "_" + metricName_2 + "_" + PrometheusMetric.TIMER_UNIT + "_sum";
         String requestDomainName_2 = "request_domain_2";
@@ -558,7 +605,7 @@ public class PrometheusMetricTest {
         Assert.assertNull(registry.getSampleValue(fullMetricName_2, this.labelNames, new String[]{requestDomainName_2, principalDomainName_2, httpMethodName_2, "", apiName_2}));
 
         // 3. All (except httpstatus which is not supported for timer in Prometheus
-        PrometheusMetric metric_3 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, true, false, true);
+        PrometheusMetric metric_3 = new PrometheusMetric(registry, namesToCollectors, null, namespace, true, true, true, false, true, false, null);
         String metricName_3 = "test_timer_3";
         String fullMetricName_3 = namespace + "_" + metricName_3 + "_" + PrometheusMetric.TIMER_UNIT + "_sum";
         String requestDomainName_3 = "request_domain_3";
@@ -590,9 +637,46 @@ public class PrometheusMetricTest {
     }
 
     @Test
+    public void testStartTimingHttpRequestHistogramEnable() {
+        CollectorRegistry registry = new CollectorRegistry();
+        ConcurrentHashMap<String, Collector> namesToCollectors = new ConcurrentHashMap<>();
+        String namespace = "metric_test";
+        double[] histogramBuckets = new double[]{0.1D, 0.25D, 0.5D, 0.75D, 1.0D, 2.5D};
+
+        PrometheusMetric metric = new PrometheusMetric(registry, namesToCollectors, null, namespace, false, false, false, false, false, true, histogramBuckets);
+        String metricName = "test_timer";
+        String fullMetricName = namespace + "_" + metricName + "_" + PrometheusMetric.TIMER_UNIT + "_bucket";
+
+        metric.stopTiming(metric.startTiming(metricName, null, null, null, null));
+
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "0.1"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "0.25"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "0.5"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "0.75"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "1.0"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "2.5"}));
+        Assert.assertNotNull(registry.getSampleValue(fullMetricName, this.labelNamesBucket, new String[]{"", "", "", "", "", "+Inf"}));
+    }
+
+    @Test
     public void testStopTiming() {
         Summary.Timer timer = mock(Summary.Timer.class);
-        PrometheusMetric metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false);
+        PrometheusMetric metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false, false, null);
+
+        metric.stopTiming(timer);
+        // assertions
+        verify(timer, times(1)).observeDuration();
+
+        // different signature
+        metric.stopTiming(timer, "request_domain", "principal_domain");
+        // assertions
+        verify(timer, times(2)).observeDuration();
+    }
+
+    @Test
+    public void testStopTimingHistogramEnable() {
+        Histogram.Timer timer = mock(Histogram.Timer.class);
+        PrometheusMetric metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false, true, null);
 
         metric.stopTiming(timer);
         // assertions
@@ -606,7 +690,7 @@ public class PrometheusMetricTest {
 
     @Test
     public void testStopTimingOnNull() {
-        PrometheusMetric metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false);
+        PrometheusMetric metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false, false, null);
         metric.stopTiming(null);
 
         // no exceptions, and no actions
@@ -616,13 +700,13 @@ public class PrometheusMetricTest {
     public void testFlush() {
         PrometheusExporter exporter = mock(PrometheusExporter.class);
 
-        PrometheusMetric metric = new PrometheusMetric(null, null, exporter, "", false, false, false, false, false);
+        PrometheusMetric metric = new PrometheusMetric(null, null, exporter, "", false, false, false, false, false, false, null);
         metric.flush();
         // assertions
         verify(exporter, times(1)).flush();
 
         // test null exporter
-        metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false);
+        metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false, false, null);
         metric.flush();
         // no exceptions, and no actions
     }
@@ -631,14 +715,14 @@ public class PrometheusMetricTest {
     public void testQuit() {
         PrometheusExporter exporter = mock(PrometheusExporter.class);
 
-        PrometheusMetric metric = new PrometheusMetric(null, null, exporter, "", false, false, false, false, false);
+        PrometheusMetric metric = new PrometheusMetric(null, null, exporter, "", false, false, false, false, false, false, null);
         metric.quit();
         // assertions
         verify(exporter, times(1)).flush();
         verify(exporter, times(1)).quit();
 
         // test null exporter
-        metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false);
+        metric = new PrometheusMetric(null, null, null, "", false, false, false, false, false, false, null);
         metric.quit();
         // no exceptions, and no actions
     }

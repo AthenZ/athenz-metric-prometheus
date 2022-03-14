@@ -23,7 +23,7 @@
   <groupId>com.yahoo.athenz</groupId>
   <artifactId>athenz_metrics_prometheus</artifactId>
   <packaging>jar</packaging>
-  <version>1.0.1</version>
+  <version>1.1.0</version>
   <name>athenz_metrics_prometheus</name>
   <description>Athenz Yahoo Server Metrics Interface implementation for Prometheus</description>
 
